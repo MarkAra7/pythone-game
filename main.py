@@ -2,6 +2,7 @@ import pygame
 import sys
 import json
 import os
+import math
 GAME_STATS=[{"TotalCookies":0,"CokiesPerSecond":0,"Cokies":0}]
 UPGRADE = [
     {"name": "Leather Click", "cost": 100, "To Unlock": {"Cursors": 1},
@@ -16,12 +17,12 @@ UPGRADE = [
 ]
 
 STORE = [
-    {"name": "Cursor", "cost": 15, "cps": 0.1, "count": 0},
-    {"name": "Grandma", "cost": 100, "cps": 1, "count": 0},
-    {"name": "Farm", "cost": 1100, "cps": 8, "count": 0},
-    {"name": "Mine", "cost": 12000, "cps": 47, "count": 0},
-    {"name": "Factory", "cost": 130000, "cps": 260, "count": 0},
-    {"name": "Bank", "cost": 1400000, "cps": 1400, "count": 0}
+    {"name": "Cursor", "cost": 15, "cps": 0.1, "count": 0,"CookieCountNeeded":0},
+    {"name": "Grandma", "cost": 100, "cps": 1, "count": 0, "CookieCountNeeded":50},
+    {"name": "Farm", "cost": 1100, "cps": 8, "count": 0, "CookieCountNeeded":500},
+    {"name": "Mine", "cost": 12000, "cps": 47, "count": 0, "CookieCountNeeded":10000},
+    {"name": "Factory", "cost": 130000, "cps": 260, "count": 0, "CookieCountNeeded":120000},
+    {"name": "Bank", "cost": 1400000, "cps": 1400, "count": 0, "CookieCountNeeded":1300000}
 ]
 
 ACHIEVEMENTS = [
@@ -41,10 +42,11 @@ clock = pygame.time.Clock()
 
 # Objects & Data
 cookie_rect = pygame.Rect(100, 150, 160, 160)
-upgrade_rects = [pygame.Rect(350, 80 + i * 70, 430, 60) for i in range(len(STORE))]
+upgrade_rects = [pygame.Rect(350, 80 + i * 70, 350, 60) for i in range(len(STORE))]
 save_button = pygame.Rect(900, 30, 80, 40)
 load_button = pygame.Rect(900, 80, 80, 40)
 
+allCookies=0;
 cookies = 0
 cps = 0
 click_multiplier = 1  # New variable for click power
@@ -57,16 +59,15 @@ def draw():
     pygame.draw.ellipse(screen, BROWN, cookie_rect)
     screen.blit(font.render("Cookie", True, BLACK), (cookie_rect.x + 30, cookie_rect.y + 60))
     # Stats
-    screen.blit(font.render(f"Cookies: {int(cookies)}", True, BLACK), (40, 40))
+    screen.blit(font.render(f"All Time Cookies: {millify(int(allCookies))}", True, BLACK), (40, 1))
+    screen.blit(font.render(f"Cookies: {millify(int(cookies))}", True, BLACK), (40, 40))
     screen.blit(font.render(f"Cookies/sec: {cps:.1f}", True, BLACK), (40, 80))
     screen.blit(font.render(f"Cookies/click: {click_multiplier}", True, BLACK), (40, 120))  # Show click multiplier
-    # Upgrades
-    screen.blit(font.render("Upgrades", True, BLACK), (350, 50))
-    for i, up in enumerate(STORE):
-        rect = upgrade_rects[i]
-        pygame.draw.rect(screen, GRAY, rect)
-        txt = f"{up['name']} ({up['count']}) - +{up['cps']} cps - Cost: {int(up['cost'])}"
-        screen.blit(font.render(txt, True, BLACK), (rect.x + 10, rect.y + 15))
+    #Store
+    drawAndUpdateUpgrades()
+    #Upgrades
+
+    drawUpgrades()
     # Achievements
     screen.blit(font.render("Achievements:", True, BLACK), (40, 350))
     for i, ach in enumerate(ACHIEVEMENTS):
@@ -78,9 +79,37 @@ def draw():
     pygame.draw.rect(screen, GRAY, load_button)
     screen.blit(font.render("Load", True, BLACK), (load_button.x + 10, load_button.y + 5))
 
+def drawAndUpdateUpgrades():
+    screen.blit(font.render("Store", True, BLACK), (350, 50))
+    mouse_pos = pygame.mouse.get_pos()
+    for i, up in enumerate(STORE):
+        if up["CookieCountNeeded"] <= allCookies:
 
+            rect = upgrade_rects[i]
+            # Draw the upgrade box
+            pygame.draw.rect(screen, GRAY, rect)
+            txt = f"{up['name']} ({up['count']}) - Cost: {millify(int(up['cost']))}"
+            screen.blit(font.render(txt, True, BLACK), (rect.x + 10, rect.y + 15))
+            # Check for hover
+            if rect.collidepoint(mouse_pos):
+                # Draw the CPS info text on hover
+                if(up['count']==0):
+                    hover_text = f"+{up['cps']} cps"
+                else:
+                    hover_text = f"+{up['cps']} cps. You get {millify(up['cps'] * up['count'])}/sec"
+                hover_surface = font.render(hover_text, True, BLACK)
+                # Position the hover text slightly above or near the upgrade rectangle
+                if(i==0):
+                    hover_pos = (rect.x + 60, rect.y - hover_surface.get_height() - 5)
+                else:
+                    hover_pos = (rect.x, rect.y - hover_surface.get_height() - 5)
+                screen.blit(hover_surface, hover_pos)
+def drawUpgrades():
+    screen.blit(font.render("Upgrades", True, BLACK), (700, 50))
+    mouse_pos = pygame.mouse.get_pos()
 def save_game(filename="savegame.json"):
     state = {
+        "allCookies":allCookies,
         "cookies": cookies,
         "cps": cps,
         "store": STORE,
@@ -90,12 +119,20 @@ def save_game(filename="savegame.json"):
     with open(filename, "w") as f:
         json.dump(state, f)
 
+def millify(n):
+    numnames = ['', 'K', ' Mil', ' Bil', ' Tril']
+    n = float(n)
+    numidx = max(0, min(len(numnames) - 1,
+                        int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))))
+    return '{:.1f}{}'.format(n / 10**(3 * numidx), numnames[numidx])
+
 
 def load_game(filename="savegame.json"):
-    global cookies, cps, STORE, ACHIEVEMENTS, click_multiplier
+    global cookies, cps, STORE, ACHIEVEMENTS, click_multiplier ,allCookies
     if os.path.exists(filename):
         with open(filename, "r") as f:
             state = json.load(f)
+        allCookies = state.get("allCookies",0)
         cookies = state.get("cookies", 0)
         cps = state.get("cps", 0)
         up_saved = state.get("upgrades", [])
@@ -108,17 +145,23 @@ def load_game(filename="savegame.json"):
         click_multiplier = state.get("click_multiplier", 1)
 
 
-def buy_upgrade(idx):
+def buy_store(idx):
     global cookies, cps, click_multiplier
     u = STORE[idx]
     if cookies >= u["cost"]:
         cookies -= u["cost"]
         u["count"] += 1
         cps += u["cps"]
-        u["cost"] = int(u["cost"] * 1.15)
+        u["cost"] = int(u["cost"] * 1.20)
         if u["name"] == "Click Multiplier":
             click_multiplier *= 2
 
+def buy_upgrades(idx):
+    global cookies,cps ,click_multiplier
+    u=UPGRADE[idx]
+    if cookies >= u["cost"]:
+        cookies -= u["cost"]
+        u[""]
 
 def check_achievements():
     for ach in ACHIEVEMENTS:
@@ -138,9 +181,10 @@ while running:
             x, y = event.pos
             if cookie_rect.collidepoint(x, y):
                 cookies += click_multiplier
+                allCookies += click_multiplier
             for i, rect in enumerate(upgrade_rects):
                 if rect.collidepoint(x, y):
-                    buy_upgrade(i)
+                    buy_store(i)
             if save_button.collidepoint(x, y):
                 save_game()
             if load_button.collidepoint(x, y):
@@ -150,6 +194,7 @@ while running:
     cps_timer += dt
     if cps_timer >= 1000:
         cookies += cps
+        allCookies += cps
         cps_timer = 0
     check_achievements()
     draw()
