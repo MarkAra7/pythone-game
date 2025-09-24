@@ -3,7 +3,7 @@ import sys
 import json
 import os
 import math
-GAME_STATS=[{"TotalCookies":0,"CokiesPerSecond":0,"Cokies":0}]
+GAME_STATS=[{"allCookies":0,"CokiesPerSecond":0,"Cokies":0}]
 UPGRADE = [
     {"name": "Leather Click", "cost": 100, "To Unlock": {"Cursors": 1},
      "description": "Clicks and Cursor are two time efficient", "Visable": False},
@@ -34,7 +34,7 @@ ACHIEVEMENTS = [
 ]
 # Pygame setup
 pygame.init()
-WIDTH, HEIGHT = 1000, 600
+WIDTH, HEIGHT =1200, 600
 WHITE, BLACK, GRAY, GREEN, BROWN = (255, 255, 255), (0, 0, 0), (200, 200, 200), (0, 155, 0), (210, 180, 140)
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 font = pygame.font.SysFont(None, 32)
@@ -43,14 +43,22 @@ clock = pygame.time.Clock()
 # Objects & Data
 cookie_rect = pygame.Rect(100, 150, 160, 160)
 upgrade_rects = [pygame.Rect(350, 80 + i * 70, 350, 60) for i in range(len(STORE))]
-save_button = pygame.Rect(900, 30, 80, 40)
-load_button = pygame.Rect(900, 80, 80, 40)
+# For example, starting at x=350, y=550 and vertically spaced by 70 px
+store_rects = [pygame.Rect(720, 80 + i * 70, 350, 60) for i in range(len(UPGRADE))]
 
-allCookies=0;
+save_button = pygame.Rect(1100, 30, 80, 40)
+load_button = pygame.Rect(1100, 80, 80, 40)
+
+allCookies=0
 cookies = 0
 cps = 0
-click_multiplier = 1  # New variable for click power
-
+click_multiplier = 1
+# New variable for click power
+def recalc_cps():
+    global cps
+    cps = 0
+    for upg in STORE:
+        cps += upg["cps"] * upg["count"]
 
 
 def draw():
@@ -105,7 +113,7 @@ def drawAndUpdateUpgrades():
                     hover_pos = (rect.x, rect.y - hover_surface.get_height() - 5)
                 screen.blit(hover_surface, hover_pos)
 def drawUpgrades():
-    screen.blit(font.render("Upgrades", True, BLACK), (700, 50))
+    screen.blit(font.render("Upgrades", True, BLACK), (720, 50))
     mouse_pos = pygame.mouse.get_pos()
 def save_game(filename="savegame.json"):
     state = {
@@ -156,17 +164,69 @@ def buy_store(idx):
         if u["name"] == "Click Multiplier":
             click_multiplier *= 2
 
-def buy_upgrades(idx):
-    global cookies,cps ,click_multiplier
-    u=UPGRADE[idx]
-    if cookies >= u["cost"]:
-        cookies -= u["cost"]
-        u[""]
 
 def check_achievements():
     for ach in ACHIEVEMENTS:
         if not ach["unlocked"] and ach["check"](cookies, STORE):
             ach["unlocked"] = True
+# Modify buy_upgrades()
+
+
+
+def buy_upgrades(idx):
+    global cookies,click_multiplier
+    u = UPGRADE[idx]
+    if cookies >= u["cost"] and u["Visable"] and not u.get("purchased", False):
+        cookies -= u["cost"]
+        u["purchased"] = True
+        u["Visable"] = False
+        u["cost"] = 0
+        click_multiplier = click_multiplier*2
+        # Find related store item by name from upgrade, example hardcoded here:
+        related_store_name = "Cursor"  # customize per upgrade if needed
+
+        # Multiply cps of related store item by 2
+        for store_item in STORE:
+            if store_item["name"] == related_store_name:
+                store_item["cps"] *= 2
+
+        recalc_cps()
+
+
+
+def update_upgrade_visibility():
+    for u in UPGRADE:
+        if not u["Visable"]:
+            unlocked = True
+            for key, val in u["To Unlock"].items():
+                # Singularize key crudely: remove trailing 's' if plural
+                key_singular = key[:-1] if key.endswith("s") else key
+                found = False
+                for store_item in STORE:
+                    if store_item["name"] == key_singular:
+                        found = True
+                        if store_item["count"] < val:
+                            unlocked = False
+                            break
+                if not found:
+                    unlocked = False
+            if unlocked:
+                u["Visable"] = True
+
+
+def drawUpgrades():
+    screen.blit(font.render("Upgrades", True, BLACK), (720, 50))
+    mouse_pos = pygame.mouse.get_pos()
+    for i, u in enumerate(UPGRADE):
+        if u["Visable"] and not u.get("purchased", False):
+            rect = store_rects[i]
+            pygame.draw.rect(screen, GRAY, rect)
+            cost_text = f"Cost: {millify(int(u['cost']))}" if u["cost"] > 0 else "Purchased"
+            txt = f"{u['name']} - {cost_text}"
+            screen.blit(font.render(txt, True, BLACK), (rect.x + 10, rect.y + 15))
+            if rect.collidepoint(mouse_pos):
+                desc_surf = font.render(u["description"], True, BLACK)
+                screen.blit(desc_surf, (rect.x, rect.y - desc_surf.get_height() - 5))
 
 
 # Main Game Loop
@@ -185,10 +245,14 @@ while running:
             for i, rect in enumerate(upgrade_rects):
                 if rect.collidepoint(x, y):
                     buy_store(i)
+            for i, rect in enumerate(store_rects):
+                if rect.collidepoint(x, y):
+                    buy_upgrades(i)
             if save_button.collidepoint(x, y):
                 save_game()
             if load_button.collidepoint(x, y):
                 load_game()
+    update_upgrade_visibility()
     # Accumulate cookies/sec
     dt = clock.tick(60)
     cps_timer += dt
