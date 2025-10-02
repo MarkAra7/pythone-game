@@ -6,13 +6,23 @@ import math
 GAME_STATS=[{"allCookies":0,"CokiesPerSecond":0,"Cokies":0}]
 UPGRADE = [
     {"name": "Leather Click", "cost": 100, "To Unlock": {"Cursors": 1},
-     "description": "Clicks and Cursor are two time efficient", "Visable": False},
+     "description": "Clicks and Cursor are two time efficient", "Visable": False ,"Purchased":False},
     {"name": "Bronze Click", "cost": 500, "To Unlock": {"Cursors": 1},
-     "description": "Clicks and Cursor are two time efficient", "Visable": False},
+     "description": "Clicks and Cursor are two time efficient", "Visable": False ,"Purchased":False},
     {"name": "Iron Click", "cost": 10000, "To Unlock": {"Cursors": 10},
-     "description": "Clicks and Cursor are two time efficient", "Visable": False},
-    {"name": "Iron Click", "cost": 100000, "To Unlock": {"Cursors": 25},
-     "description": "Clicks and Cursor are two time efficient", "Visable": False}
+     "description": "Clicks and Cursor are two time efficient", "Visable": False,"Purchased":False},
+    {"name": "Gold Click", "cost": 100000, "To Unlock": {"Cursors": 25},
+     "description": "Clicks and Cursor are two time efficient", "Visable": False,"Purchased":False},
+    {"name": "Silver Click", "cost": 250000, "To Unlock": {"Cursors": 50},
+     "description": "Clicks and Cursor efficiency improved", "Visable": False, "Purchased": False},
+    {"name": "Platinum Click", "cost": 1000000, "To Unlock": {"Cursors": 100},
+     "description": "Clicks and Cursor are much more efficient", "Visable": False, "Purchased": False},
+    {"name": "Diamond Click", "cost": 5000000, "To Unlock": {"Cursors": 250},
+     "description": "Clicks and Cursor boosted to maximum efficiency", "Visable": False, "Purchased": False},
+    {"name": "Ruby Click", "cost": 10000000, "To Unlock": {"Cursors": 500},
+     "description": "Clicks and Cursor receive an incredible boost", "Visable": False, "Purchased": False},
+    {"name": "Emerald Click", "cost": 25000000, "To Unlock": {"Cursors": 1000},
+     "description": "Clicks and Cursor gain extraordinary power", "Visable": False, "Purchased": False}
 
 ]
 
@@ -30,7 +40,10 @@ ACHIEVEMENTS = [
     {"name": "10 Upgrades", "desc": "Own 10 upgrades total", "unlocked": False,
      "check": lambda c, u: sum(up['count'] for up in u) >= 10},
     {"name": "1k Cookies", "desc": "Reach 1,000 cookies", "unlocked": False, "check": lambda c, u: c >= 1000},
-    {"name": "10K Cookies ", "desc": "Reach 10,000 cookies", "unlocked": False, "check": lambda c, u: c >= 10000}
+    {"name": "10K Cookies ", "desc": "Reach 10,000 cookies", "unlocked": False, "check": lambda c, u: c >= 10000},
+    {"name": "50K Cookies ", "desc": "Reach 50,000 cookies", "unlocked": False, "check": lambda c, u: c >= 50000},
+    {"name": "100K Cookies ", "desc": "Reach 100,000 cookies", "unlocked": False, "check": lambda c, u: c >= 100000}
+
 ]
 # Pygame setup
 pygame.init()
@@ -112,17 +125,34 @@ def drawAndUpdateUpgrades():
                 else:
                     hover_pos = (rect.x, rect.y - hover_surface.get_height() - 5)
                 screen.blit(hover_surface, hover_pos)
+
+
 def drawUpgrades():
     screen.blit(font.render("Upgrades", True, BLACK), (720, 50))
     mouse_pos = pygame.mouse.get_pos()
+    visible_upgrades = [u for u in UPGRADE if u["Visable"] and not u.get("Purchased", False)]
+    for i, u in enumerate(visible_upgrades):
+        rect = pygame.Rect(720, 80 + i * 70, 350, 60)
+        pygame.draw.rect(screen, GRAY, rect)
+        cost_text = f"Cost: {millify(int(u['cost']))}" if u["cost"] > 0 else "Purchased"
+        txt = f"{u['name']} - {cost_text}"
+        screen.blit(font.render(txt, True, BLACK), (rect.x + 10, rect.y + 15))
+
+        if rect.collidepoint(mouse_pos):
+            desc_surf = font.render(u["description"], True, BLACK)
+            screen.blit(desc_surf, (rect.x, rect.y - desc_surf.get_height() - 5))
+
+
+
 def save_game(filename="savegame.json"):
     state = {
-        "allCookies":allCookies,
+        "allCookies": allCookies,
         "cookies": cookies,
         "cps": cps,
         "store": STORE,
         "achievements": [ach["unlocked"] for ach in ACHIEVEMENTS],
-        "click_multiplier": click_multiplier
+        "click_multiplier": click_multiplier,
+        "upgrades":UPGRADE
     }
     with open(filename, "w") as f:
         json.dump(state, f)
@@ -143,7 +173,11 @@ def load_game(filename="savegame.json"):
         allCookies = state.get("allCookies",0)
         cookies = state.get("cookies", 0)
         cps = state.get("cps", 0)
-        up_saved = state.get("upgrades", [])
+        up_saved = state.get("store", [])
+        upsaved = state.get("upgrades", [])
+        for i in range(min(len(upsaved), len(UPGRADE))):
+            UPGRADE[i].update(upsaved[i])
+        drawAndUpdateUpgrades()
         for i in range(min(len(up_saved), len(STORE))):
             STORE[i].update(up_saved[i])
         ach_saved = state.get("achievements", [])
@@ -151,6 +185,7 @@ def load_game(filename="savegame.json"):
             if i < len(ACHIEVEMENTS):
                 ACHIEVEMENTS[i]["unlocked"] = unlocked
         click_multiplier = state.get("click_multiplier", 1)
+
 
 
 def buy_store(idx):
@@ -253,7 +288,6 @@ while running:
             if load_button.collidepoint(x, y):
                 load_game()
     update_upgrade_visibility()
-    # Accumulate cookies/sec
     dt = clock.tick(60)
     cps_timer += dt
     if cps_timer >= 1000:
