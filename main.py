@@ -56,7 +56,6 @@ clock = pygame.time.Clock()
 # Objects & Data
 cookie_rect = pygame.Rect(100, 150, 160, 160)
 upgrade_rects = [pygame.Rect(350, 80 + i * 70, 350, 60) for i in range(len(STORE))]
-# For example, starting at x=350, y=550 and vertically spaced by 70 px
 store_rects = [pygame.Rect(720, 80 + i * 70, 350, 60) for i in range(len(UPGRADE))]
 
 save_button = pygame.Rect(1100, 30, 80, 40)
@@ -66,7 +65,7 @@ allCookies=0
 cookies = 0
 cps = 0
 click_multiplier = 1
-# New variable for click power
+
 def recalc_cps():
     global cps
     cps = 0
@@ -76,25 +75,25 @@ def recalc_cps():
 
 def draw():
     screen.fill(WHITE)
-    # Cookie
+   
     pygame.draw.ellipse(screen, BROWN, cookie_rect)
     screen.blit(font.render("Cookie", True, BLACK), (cookie_rect.x + 30, cookie_rect.y + 60))
-    # Stats
+    
     screen.blit(font.render(f"All Time Cookies: {millify(int(allCookies))}", True, BLACK), (40, 1))
     screen.blit(font.render(f"Cookies: {millify(int(cookies))}", True, BLACK), (40, 40))
     screen.blit(font.render(f"Cookies/sec: {cps:.1f}", True, BLACK), (40, 80))
     screen.blit(font.render(f"Cookies/click: {click_multiplier}", True, BLACK), (40, 120))  # Show click multiplier
-    #Store
+    
     drawAndUpdateUpgrades()
-    #Upgrades
+    
 
     drawUpgrades()
-    # Achievements
+    
     screen.blit(font.render("Achievements:", True, BLACK), (40, 350))
     for i, ach in enumerate(ACHIEVEMENTS):
         color = GREEN if ach["unlocked"] else BLACK
         screen.blit(font.render(f"- {ach['name']}", True, color), (60, 380 + i * 25))
-    # Save/Load
+
     pygame.draw.rect(screen, GRAY, save_button)
     screen.blit(font.render("Save", True, BLACK), (save_button.x + 10, save_button.y + 5))
     pygame.draw.rect(screen, GRAY, load_button)
@@ -107,19 +106,19 @@ def drawAndUpdateUpgrades():
         if up["CookieCountNeeded"] <= allCookies:
 
             rect = upgrade_rects[i]
-            # Draw the upgrade box
+            
             pygame.draw.rect(screen, GRAY, rect)
             txt = f"{up['name']} ({up['count']}) - Cost: {millify(int(up['cost']))}"
             screen.blit(font.render(txt, True, BLACK), (rect.x + 10, rect.y + 15))
-            # Check for hover
+            
             if rect.collidepoint(mouse_pos):
-                # Draw the CPS info text on hover
+                
                 if(up['count']==0):
                     hover_text = f"+{up['cps']} cps"
                 else:
                     hover_text = f"+{up['cps']} cps. You get {millify(up['cps'] * up['count'])}/sec"
                 hover_surface = font.render(hover_text, True, BLACK)
-                # Position the hover text slightly above or near the upgrade rectangle
+                
                 if(i==0):
                     hover_pos = (rect.x + 60, rect.y - hover_surface.get_height() - 5)
                 else:
@@ -204,7 +203,6 @@ def check_achievements():
     for ach in ACHIEVEMENTS:
         if not ach["unlocked"] and ach["check"](cookies, STORE):
             ach["unlocked"] = True
-# Modify buy_upgrades()
 
 
 
@@ -217,10 +215,10 @@ def buy_upgrades(idx):
         u["Visable"] = False
         u["cost"] = 0
         click_multiplier = click_multiplier*2
-        # Find related store item by name from upgrade, example hardcoded here:
-        related_store_name = "Cursor"  # customize per upgrade if needed
+        
+        related_store_name = "Cursor"  
 
-        # Multiply cps of related store item by 2
+        
         for store_item in STORE:
             if store_item["name"] == related_store_name:
                 store_item["cps"] *= 2
@@ -234,7 +232,7 @@ def update_upgrade_visibility():
         if not u["Visable"]:
             unlocked = True
             for key, val in u["To Unlock"].items():
-                # Singularize key crudely: remove trailing 's' if plural
+                
                 key_singular = key[:-1] if key.endswith("s") else key
                 found = False
                 for store_item in STORE:
